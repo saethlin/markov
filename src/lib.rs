@@ -30,10 +30,20 @@ extern crate serde;
 extern crate serde_derive;
 #[cfg(feature = "yaml")]
 extern crate serde_yaml;
+#[cfg(feature = "hashbrown")]
+extern crate hashbrown;
+
+#[cfg(not(feature = "hashbrown"))]
+use std::collections::HashMap;
+#[cfg(not(feature = "hashbrown"))]
+use std::collections::hash_map::Entry::{Occupied, Vacant};
+
+#[cfg(feature = "hashbrown")]
+use hashbrown::HashMap;
+#[cfg(feature = "hashbrown")]
+use hashbrown::hash_map::Entry::{Occupied, Vacant};
 
 use std::borrow::ToOwned;
-use std::collections::HashMap;
-use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::fs::File;
 use std::hash::Hash;
 use std::io::{BufReader, Result};
@@ -63,7 +73,7 @@ type Token<T> = Option<T>;
 
 /// A generic [Markov chain](https://en.wikipedia.org/wiki/Markov_chain) for almost any type.
 /// In particular, elements of the chain must be `Eq`, `Hash`, and `Clone`.
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Debug)]
 pub struct Chain<T> where T: Chainable {
     map: HashMap<Vec<Token<T>>, HashMap<Token<T>, usize>>,
     order: usize,

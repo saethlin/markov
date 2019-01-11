@@ -20,7 +20,6 @@
 //! ```
 #![warn(missing_docs)]
 
-#[cfg(feature = "hashbrown")]
 extern crate hashbrown;
 #[cfg(feature = "graph")]
 extern crate itertools;
@@ -28,14 +27,7 @@ extern crate itertools;
 extern crate petgraph;
 extern crate rand;
 
-#[cfg(not(feature = "hashbrown"))]
-use std::collections::hash_map::Entry::{Occupied, Vacant};
-#[cfg(not(feature = "hashbrown"))]
-use std::collections::HashMap;
-
-#[cfg(feature = "hashbrown")]
 use hashbrown::hash_map::Entry::{Occupied, Vacant};
-#[cfg(feature = "hashbrown")]
 use hashbrown::HashMap;
 
 use std::borrow::ToOwned;

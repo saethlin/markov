@@ -20,36 +20,29 @@
 //! ```
 #![warn(missing_docs)]
 
+#[cfg(feature = "hashbrown")]
+extern crate hashbrown;
 #[cfg(feature = "graph")]
 extern crate itertools;
 #[cfg(feature = "graph")]
 extern crate petgraph;
 extern crate rand;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-#[cfg(feature = "yaml")]
-extern crate serde_yaml;
-#[cfg(feature = "hashbrown")]
-extern crate hashbrown;
 
-#[cfg(not(feature = "hashbrown"))]
-use std::collections::HashMap;
 #[cfg(not(feature = "hashbrown"))]
 use std::collections::hash_map::Entry::{Occupied, Vacant};
+#[cfg(not(feature = "hashbrown"))]
+use std::collections::HashMap;
 
 #[cfg(feature = "hashbrown")]
-use hashbrown::HashMap;
-#[cfg(feature = "hashbrown")]
 use hashbrown::hash_map::Entry::{Occupied, Vacant};
+#[cfg(feature = "hashbrown")]
+use hashbrown::HashMap;
 
 use std::borrow::ToOwned;
 use std::fs::File;
 use std::hash::Hash;
-use std::io::{BufReader, Result};
-#[cfg(feature = "yaml")]
-use std::io::{Error, ErrorKind};
 use std::io::prelude::*;
+use std::io::{BufReader, Result};
 use std::iter::Map;
 use std::path::Path;
 
@@ -57,13 +50,7 @@ use std::path::Path;
 use itertools::Itertools;
 #[cfg(feature = "graph")]
 use petgraph::graph::Graph;
-use rand::{Rng, thread_rng};
-#[cfg(feature = "yaml")]
-use serde::Serialize;
-#[cfg(feature = "yaml")]
-use serde::de::DeserializeOwned;
-#[cfg(feature = "yaml")]
-use serde_yaml as yaml;
+use rand::{thread_rng, Rng};
 
 /// The definition of all types that can be used in a `Chain`.
 pub trait Chainable: Eq + Hash + Clone {}
@@ -74,12 +61,18 @@ type Token<T> = Option<T>;
 /// A generic [Markov chain](https://en.wikipedia.org/wiki/Markov_chain) for almost any type.
 /// In particular, elements of the chain must be `Eq`, `Hash`, and `Clone`.
 #[derive(PartialEq, Debug)]
-pub struct Chain<T> where T: Chainable {
+pub struct Chain<T>
+where
+    T: Chainable,
+{
     map: HashMap<Vec<Token<T>>, HashMap<Token<T>, usize>>,
     order: usize,
 }
 
-impl<T> Chain<T> where T: Chainable {
+impl<T> Chain<T>
+where
+    T: Chainable,
+{
     /// Constructs a new Markov chain.
     pub fn new() -> Chain<T> {
         Self::of_order(1)
@@ -94,7 +87,7 @@ impl<T> Chain<T> where T: Chainable {
         Chain {
             map: {
                 let mut map = HashMap::new();
-                map.insert(vec!(None; order), HashMap::new());
+                map.insert(vec![None; order], HashMap::new());
                 map
             },
             order: order,
@@ -104,22 +97,26 @@ impl<T> Chain<T> where T: Chainable {
     /// Determines whether or not the chain is empty. A chain is considered empty if nothing has
     /// been fed into it.
     pub fn is_empty(&self) -> bool {
-        self.map[&vec!(None; self.order)].is_empty()
+        self.map[&vec![None; self.order]].is_empty()
     }
-
 
     /// Feeds the chain a collection of tokens. This operation is `O(n)` where `n` is the number of
     /// tokens to be fed into the chain.
     pub fn feed(&mut self, tokens: Vec<T>) -> &mut Chain<T> {
-        if tokens.is_empty() { return self }
-        let mut toks = vec!(None; self.order);
-        toks.extend(tokens.into_iter().map(|token| {
-            Some(token)
-        }));
+        if tokens.is_empty() {
+            return self;
+        }
+        let mut toks = vec![None; self.order];
+        toks.extend(tokens.into_iter().map(|token| Some(token)));
         toks.push(None);
         for p in toks.windows(self.order + 1) {
-            self.map.entry(p[0..self.order].to_vec()).or_insert_with(HashMap::new);
-            self.map.get_mut(&p[0..self.order].to_vec()).unwrap().add(p[self.order].clone());
+            self.map
+                .entry(p[0..self.order].to_vec())
+                .or_insert_with(HashMap::new);
+            self.map
+                .get_mut(&p[0..self.order].to_vec())
+                .unwrap()
+                .add(p[self.order].clone());
         }
         self
     }
@@ -129,13 +126,17 @@ impl<T> Chain<T> where T: Chainable {
     /// state.
     pub fn generate(&self) -> Vec<T> {
         let mut ret = Vec::new();
-        let mut curs = vec!(None; self.order);
+        let mut curs = vec![None; self.order];
         loop {
             let next = self.map[&curs].next();
             curs = curs[1..self.order].to_vec();
             curs.push(next.clone());
-            if let Some(next) = next { ret.push(next) };
-            if curs[self.order - 1].is_none() { break }
+            if let Some(next) = next {
+                ret.push(next)
+            };
+            if curs[self.order - 1].is_none() {
+                break;
+            }
         }
         ret
     }
@@ -145,15 +146,24 @@ impl<T> Chain<T> where T: Chainable {
     /// of possible states from a given state. This returns an empty vector if the token is not
     /// found.
     pub fn generate_from_token(&self, token: T) -> Vec<T> {
-        if !self.map.contains_key(&vec!(Some(token.clone()); self.order)) { return Vec::new() }
+        if !self
+            .map
+            .contains_key(&vec![Some(token.clone()); self.order])
+        {
+            return Vec::new();
+        }
         let mut ret = vec![token.clone()];
-        let mut curs = vec!(Some(token.clone()); self.order);
+        let mut curs = vec![Some(token.clone()); self.order];
         loop {
             let next = self.map[&curs].next();
             curs = curs[1..self.order].to_vec();
             curs.push(next.clone());
-            if let Some(next) = next { ret.push(next) };
-            if curs[self.order - 1].is_none() { break }
+            if let Some(next) = next {
+                ret.push(next)
+            };
+            if curs[self.order - 1].is_none() {
+                break;
+            }
         }
         ret
     }
@@ -165,7 +175,10 @@ impl<T> Chain<T> where T: Chainable {
 
     /// Produces an iterator for the specified number of generated token collections.
     pub fn iter_for(&self, size: usize) -> SizedChainIterator<T> {
-        SizedChainIterator { chain: self, size: size }
+        SizedChainIterator {
+            chain: self,
+            size: size,
+        }
     }
 
     /// Create a graph using `petgraph` from the markov chain.
@@ -174,66 +187,47 @@ impl<T> Chain<T> where T: Chainable {
         let mut graph = Graph::new();
 
         // Create all possible node and store indices into hashmap.
-        let state_map = self.map.iter().flat_map(|(state, nexts)| {
-            let mut states = vec!(state.clone());
+        let state_map = self
+            .map
+            .iter()
+            .flat_map(|(state, nexts)| {
+                let mut states = vec![state.clone()];
 
-            let mut state = state.clone();
-            state.remove(0);
+                let mut state = state.clone();
+                state.remove(0);
 
-            for next in nexts {
-                let mut next_state = state.clone();
-                next_state.push(next.0.clone());
-                states.push(next_state);
-            }
+                for next in nexts {
+                    let mut next_state = state.clone();
+                    next_state.push(next.0.clone());
+                    states.push(next_state);
+                }
 
-            states
-        }).unique()
+                states
+            })
+            .unique()
             .map(|state| (state.clone(), graph.add_node(state)))
             .collect::<HashMap<_, _>>();
 
         // Create all edges, and add them to the graph.
-        self.map.iter().flat_map(|(state, nexts)| {
-            let sum = nexts.iter().map(|(_, p)| p).sum::<usize>() as f64;
+        self.map
+            .iter()
+            .flat_map(|(state, nexts)| {
+                let sum = nexts.iter().map(|(_, p)| p).sum::<usize>() as f64;
 
-            nexts.iter()
-                .map(|(next, p)| (state.clone(), next.clone(), *p as f64 / sum))
-                .collect::<Vec<_>>()
-        }).for_each(|(state, next, p)| {
-            let mut next_state = state.clone();
-            next_state.remove(0);
-            next_state.push(next.clone());
+                nexts
+                    .iter()
+                    .map(|(next, p)| (state.clone(), next.clone(), *p as f64 / sum))
+                    .collect::<Vec<_>>()
+            })
+            .for_each(|(state, next, p)| {
+                let mut next_state = state.clone();
+                next_state.remove(0);
+                next_state.push(next.clone());
 
-            graph.add_edge(state_map[&state], state_map[&next_state], p);
-        });
+                graph.add_edge(state_map[&state], state_map[&next_state], p);
+            });
 
         graph
-    }
-}
-
-#[cfg(feature = "yaml")]
-impl<T> Chain<T> where T: Chainable + Serialize {
-    /// Saves the current chain to the specified path.
-    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let mut file = File::create(&path)?;
-        let data = yaml::to_string(self).map_err(|e| {
-            Error::new(ErrorKind::InvalidData, e)
-        })?;
-        file.write_all(data.as_bytes())?;
-        Ok(())
-    }
-}
-
-#[cfg(feature = "yaml")]
-impl<T> Chain<T> where T: Chainable + DeserializeOwned {
-    /// Loads a chain from the specified path.
-    pub fn load<P: AsRef<Path>>(path: P) -> Result<Chain<T>> {
-        let mut file = File::open(&path)?;
-        let mut data = String::new();
-        file.read_to_string(&mut data)?;
-
-        yaml::from_str(&data).map_err(|e| {
-            Error::new(ErrorKind::InvalidInput, e)
-        })
     }
 }
 
@@ -249,10 +243,11 @@ impl Chain<String> {
         let reader = BufReader::new(File::open(path)?);
         for line in reader.lines() {
             let line = line?;
-            let words = line.split_whitespace()
-                            .filter(|word| !word.is_empty())
-                            .map(|s| s.to_owned())
-                            .collect();
+            let words = line
+                .split_whitespace()
+                .filter(|word| !word.is_empty())
+                .map(|s| s.to_owned())
+                .collect();
             self.feed(words);
         }
         Ok(self)
@@ -298,7 +293,7 @@ impl Chain<String> {
 
 /// A sized iterator over a Markov chain of strings.
 pub type SizedChainStringIterator<'a> =
-Map<SizedChainIterator<'a, String>, fn(Vec<String>) -> String>;
+    Map<SizedChainIterator<'a, String>, fn(Vec<String>) -> String>;
 
 /// A sized iterator over a Markov chain.
 pub struct SizedChainIterator<'a, T: Chainable + 'a> {
@@ -306,7 +301,10 @@ pub struct SizedChainIterator<'a, T: Chainable + 'a> {
     size: usize,
 }
 
-impl<'a, T> Iterator for SizedChainIterator<'a, T> where T: Chainable + 'a {
+impl<'a, T> Iterator for SizedChainIterator<'a, T>
+where
+    T: Chainable + 'a,
+{
     type Item = Vec<T>;
     fn next(&mut self) -> Option<Vec<T>> {
         if self.size > 0 {
@@ -324,14 +322,17 @@ impl<'a, T> Iterator for SizedChainIterator<'a, T> where T: Chainable + 'a {
 
 /// An infinite iterator over a Markov chain of strings.
 pub type InfiniteChainStringIterator<'a> =
-Map<InfiniteChainIterator<'a, String>, fn(Vec<String>) -> String>;
+    Map<InfiniteChainIterator<'a, String>, fn(Vec<String>) -> String>;
 
 /// An infinite iterator over a Markov chain.
 pub struct InfiniteChainIterator<'a, T: Chainable + 'a> {
-    chain: &'a Chain<T>
+    chain: &'a Chain<T>,
 }
 
-impl<'a, T> Iterator for InfiniteChainIterator<'a, T> where T: Chainable + 'a {
+impl<'a, T> Iterator for InfiniteChainIterator<'a, T>
+where
+    T: Chainable + 'a,
+{
     type Item = Vec<T>;
     fn next(&mut self) -> Option<Vec<T>> {
         Some(self.chain.generate())
@@ -346,11 +347,16 @@ trait States<T: PartialEq> {
     fn next(&self) -> Token<T>;
 }
 
-impl<T> States<T> for HashMap<Token<T>, usize> where T: Chainable {
+impl<T> States<T> for HashMap<Token<T>, usize>
+where
+    T: Chainable,
+{
     fn add(&mut self, token: Token<T>) {
         match self.entry(token) {
             Occupied(mut e) => *e.get_mut() += 1,
-            Vacant(e) => { e.insert(1); },
+            Vacant(e) => {
+                e.insert(1);
+            }
         }
     }
 
@@ -365,7 +371,7 @@ impl<T> States<T> for HashMap<Token<T>, usize> where T: Chainable {
         for (key, &value) in self.iter() {
             sum += value;
             if sum > cap {
-                return key.clone()
+                return key.clone();
             }
         }
         unreachable!("The random number generator failed.")
@@ -409,7 +415,13 @@ mod test {
         let mut chain = Chain::of_order(2);
         chain.feed(vec![3u8, 5, 10]).feed(vec![2, 3, 5, 12]);
         let v = chain.generate();
-        assert!([vec![3, 5, 10], vec![3, 5, 12], vec![2, 3, 5, 10], vec![2, 3, 5, 12]].contains(&v));
+        assert!([
+            vec![3, 5, 10],
+            vec![3, 5, 12],
+            vec![2, 3, 5, 10],
+            vec![2, 3, 5, 12]
+        ]
+        .contains(&v));
     }
 
     #[test]
@@ -481,16 +493,5 @@ mod test {
         let mut chain = Chain::new();
         chain.feed_str("I like cats and I like dogs");
         assert_eq!(chain.str_iter_for(5).collect::<Vec<_>>().len(), 5);
-    }
-
-    #[test]
-    #[cfg(feature = "yaml")]
-    fn save_then_load() {
-        let mut chain = Chain::of_order(2);
-        chain.feed_str("I like cats and I like dogs");
-        chain.save("test.yaml").unwrap();
-
-        let new_chain = Chain::load("test.yaml").unwrap();
-        assert_eq!(chain, new_chain);
     }
 }

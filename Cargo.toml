@@ -20,17 +20,13 @@ maintenance = { status = "passively-maintained" }
 travis-ci = { repository = "aatxe/markov" }
 
 [features]
-default = ["graph", "markgen", "yaml"]
+default = ["graph", "markgen"]
 graph = ["petgraph", "itertools"]
 markgen = ["getopts"]
-yaml = ["serde_yaml"]
 
 [dependencies]
 getopts = { version = "0.2", optional = true }
 itertools = { version = "0.7", optional = true }
 petgraph = { version = "0.4", optional = true }
 rand = "0.3"
-serde = "1.0"
-serde_derive = "1.0"
-serde_yaml = { version = "0.7", optional = true }
 hashbrown = { version = "0.1", optional = true }
